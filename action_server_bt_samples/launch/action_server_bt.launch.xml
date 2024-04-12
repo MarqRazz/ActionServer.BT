@@ -1,0 +1,11 @@
+<launch>
+  <arg name="sleep_server" default="true"/>
+
+  <node pkg="action_server_bt" exec="action_server_node" output="screen">
+    <param from="$(find-pkg-share action_server_bt_samples)/config/action_server_bt_sample.yaml"/>
+  </node>
+
+  <group if="$(var sleep_server)">
+    <node pkg="btcpp_ros2_samples" exec="sleep_server" output="screen"/>
+  </group>
+</launch>

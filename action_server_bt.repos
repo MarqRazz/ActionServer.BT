@@ -1,0 +1,9 @@
+repositories:
+  BehaviorTree.CPP:
+    type: git
+    url: https://github.com/MarqRazz/BehaviorTree.CPP.git
+    version: main
+  BehaviorTree.ROS2:
+    type: git
+    url: https://github.com/MarqRazz/BehaviorTree.ROS2.git
+    version: main

@@ -1,0 +1,16 @@
+action_server_bt:
+  ros__parameters:
+    action_name: "behavior_server" # Optional (defaults to `action_server_bt`)
+    behavior_tick_frequency: 100 # Optional (defaults to 100 Hz)
+    groot2_port: 1667 # Optional (defaults to 1667)
+
+    # Below are a list plugins and BehaviorTrees to load
+    # (you are not required to have all 3 types)
+    # These are dynamic parameters and can be changed at runtime via rosparam
+    # see `action_server_bt/parameters.md` for documentation.
+    plugins:
+      - behaviortree_cpp/bt_plugins
+    ros_plugins:
+      - btcpp_ros2_samples/bt_plugins
+    behavior_trees:
+      - action_server_bt_samples/behavior_trees
