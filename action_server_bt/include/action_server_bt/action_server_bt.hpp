@@ -37,7 +37,7 @@ public:
   using GoalHandleActionTree = rclcpp_action::ServerGoalHandle<ActionTree>;
 
   typedef std::function<void(BT::Tree&)> OnTreeCreatedCallback;
-  typedef std::function<void(BT::NodeStatus&)> onTreeExecutionCompletedCallback;
+  typedef std::function<void(BT::NodeStatus&)> OnTreeExecutionCompletedCallback;
 
   /**
    * @brief Constructor for ActionServerBT.
@@ -47,7 +47,7 @@ public:
    * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
    */
   explicit ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created,
-                          onTreeExecutionCompletedCallback execution_complete);
+                          OnTreeExecutionCompletedCallback execution_complete);
 
   /**
    * @brief Gets the NodeBaseInterface of node_.
@@ -69,7 +69,7 @@ private:
 
   BT::BehaviorTreeFactory factory_;
   OnTreeCreatedCallback on_tree_created_;
-  onTreeExecutionCompletedCallback on_execution_complete_;
+  OnTreeExecutionCompletedCallback on_execution_complete_;
   std::shared_ptr<BT::Groot2Publisher> groot_publisher_;
 
   /**

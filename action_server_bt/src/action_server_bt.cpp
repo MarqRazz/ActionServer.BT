@@ -22,7 +22,7 @@ static const auto kLogger = rclcpp::get_logger("action_server_bt");
 namespace action_server_bt
 {
 ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created,
-                               onTreeExecutionCompletedCallback execution_complete)
+                               OnTreeExecutionCompletedCallback execution_complete)
   : node_{ std::make_shared<rclcpp::Node>("action_server_bt", options) }
 {
   // initialize user callbacks for tree creation and execution complete
