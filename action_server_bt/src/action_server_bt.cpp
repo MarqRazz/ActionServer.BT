@@ -21,15 +21,21 @@ static const auto kLogger = rclcpp::get_logger("action_server_bt");
 
 namespace action_server_bt
 {
-ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options)
+ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created,
+                               onTreeExecutionCompletedCallback execution_complete)
   : node_{ std::make_shared<rclcpp::Node>("action_server_bt", options) }
 {
+  // initialize user callbacks for tree creation and execution complete
+  on_tree_created_ = tree_created;
+  on_execution_complete_ = execution_complete;
+
+  // parameter setup
   param_listener_ = std::make_shared<action_server_bt::ParamListener>(node_);
   params_ = param_listener_->get_params();
 
+  // create the action server
   const auto action_name = params_.action_name;
   RCLCPP_INFO(kLogger, "Starting Action Server: %s", action_name.c_str());
-
   action_server_ = rclcpp_action::create_server<ActionTree>(
       node_, action_name,
       [this](const rclcpp_action::GoalUUID& uuid, std::shared_ptr<const ActionTree::Goal> goal) {
@@ -83,7 +89,6 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   const auto goal = goal_handle->get_goal();
   BT::NodeStatus status = BT::NodeStatus::RUNNING;
   auto action_result = std::make_shared<ActionTree::Result>();
-  rclcpp::WallRate loopRate(std::chrono::milliseconds(static_cast<int>(1000.0 / params_.behavior_tick_frequency)));
 
   // Before executing check if we have new Behaviors or Subtrees to reload
   if (param_listener_->is_old(params_))
@@ -97,8 +102,8 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   {
     auto tree = factory_.createTree(goal->target_tree);
 
-    // log to console and Groot
-    BT::StdCoutLogger logger_cout(tree);
+    // call user defined function after the tree has been created
+    on_tree_created_(tree);
     groot_publisher_.reset();
     groot_publisher_ = std::make_shared<BT::Groot2Publisher>(tree, params_.groot2_port);
 
@@ -119,30 +124,30 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
       feedback->node_status = convert_node_status(status);
       goal_handle->publish_feedback(feedback);
 
-      if (!loopRate.sleep())
-      {
-        RCLCPP_WARN(kLogger, "Behavior Tree tick frequency %d Hz was exceeded!",
-                    static_cast<int>(1.0 / (loopRate.period().count() * 1.0e-9)));
-      }
+      // sleep to tick the tree at the desired frequency
+      tree.sleep(std::chrono::milliseconds(static_cast<int>(1000.0 / params_.behavior_tick_frequency)));
     }
   }
   catch (const std::exception& ex)
   {
-    action_result->error_message = std::string("Behavior Tree exception: ") + ex.what();
+    action_result->error_message = "Behavior Tree exception: %s", ex.what();
     RCLCPP_ERROR(kLogger, action_result->error_message.c_str());
     goal_handle->abort(action_result);
     return;
   }
 
-  // The only options for NodeStatus here are SUCCESS or FAILURE
+  // call user defined execution complete function
+  on_execution_complete_(status);
+
+  // return success or aborted for the action result
   if (status == BT::NodeStatus::SUCCESS)
   {
-    RCLCPP_INFO(kLogger, "BT finished with status: SUCCESS");
+    RCLCPP_INFO(kLogger, "BT finished with status: %s", BT::toStr(status).c_str());
     goal_handle->succeed(action_result);
   }
   else
   {
-    action_result->error_message = "Behavior Tree failed during execution with status: FAILURE";
+    action_result->error_message = "Behavior Tree failed during execution with status: %s", BT::toStr(status);
     RCLCPP_ERROR(kLogger, action_result->error_message.c_str());
     goal_handle->abort(action_result);
   }

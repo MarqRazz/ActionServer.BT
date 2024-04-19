@@ -18,7 +18,12 @@ int main(int argc, char* argv[])
   rclcpp::init(argc, argv);
 
   rclcpp::NodeOptions options;
-  auto node = std::make_shared<action_server_bt::ActionServerBT>(options);
+  // create a persistent logger and pass it into the function that will be called on Tree creation
+  std::shared_ptr<BT::StdCoutLogger> logger_cout;
+  auto on_tree_creation = [&logger_cout](BT::Tree& tree) { logger_cout = std::make_shared<BT::StdCoutLogger>(tree); };
+  // create an empty function for onTreeExecutionComplete
+  auto on_complete = [](BT::NodeStatus& status) {};
+  auto node = std::make_shared<action_server_bt::ActionServerBT>(options, on_tree_creation, on_complete);
 
   // TODO: This workaround is for a bug in MultiThreadedExecutor where it can deadlock when spinning without a timeout.
   // Deadlock is caused when Publishers or Subscribers are dynamically removed as the node is spinning.
