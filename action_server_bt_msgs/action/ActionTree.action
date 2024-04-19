@@ -3,6 +3,7 @@ string target_tree
 ---
 # Result
 string error_message
+NodeStatus node_status
 ---
 # Feedback
 NodeStatus node_status

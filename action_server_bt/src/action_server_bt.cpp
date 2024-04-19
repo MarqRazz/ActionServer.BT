@@ -139,6 +139,9 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   // call user defined execution complete function
   on_execution_complete_(status);
 
+  // set the node_status result to the action
+  action_result->node_status = convert_node_status(status);
+
   // return success or aborted for the action result
   if (status == BT::NodeStatus::SUCCESS)
   {
