@@ -107,6 +107,10 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
     groot_publisher_.reset();
     groot_publisher_ = std::make_shared<BT::Groot2Publisher>(tree, params_.groot2_port);
 
+    // Loop until the tree is done or a cancel is requested
+    const auto period = std::chrono::milliseconds(static_cast<int>(1000.0 / params_.behavior_tick_frequency));
+    auto loop_deadline = std::chrono::steady_clock::now() + period;
+
     while (rclcpp::ok() && status == BT::NodeStatus::RUNNING)
     {
       if (cancel_requested_)
@@ -124,8 +128,12 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
       feedback->node_status = convert_node_status(status);
       goal_handle->publish_feedback(feedback);
 
-      // sleep to tick the tree at the desired frequency
-      tree.sleep(std::chrono::milliseconds(static_cast<int>(1000.0 / params_.behavior_tick_frequency)));
+      const auto now = std::chrono::steady_clock::now();
+      if (now < loop_deadline)
+      {
+        tree.sleep(loop_deadline - now);
+      }
+      loop_deadline += period;
     }
   }
   catch (const std::exception& ex)
