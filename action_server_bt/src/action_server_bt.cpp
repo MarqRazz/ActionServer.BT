@@ -22,8 +22,7 @@ static const auto kLogger = rclcpp::get_logger("action_server_bt");
 namespace action_server_bt
 {
 ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options, const UserCallbacks& user_callbacks)
-  : node_{ std::make_shared<rclcpp::Node>("action_server_bt", options) }
-  , user_cbs_{user_callbacks}
+  : node_{ std::make_shared<rclcpp::Node>("action_server_bt", options) }, user_cbs_{ user_callbacks }
 {
   // parameter setup
   param_listener_ = std::make_shared<action_server_bt::ParamListener>(node_);
