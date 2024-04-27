@@ -71,6 +71,8 @@ public:
   rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getNodeBaseInterface();
 
 private:
+  const UserCallbacks user_cbs_;
+
   rclcpp::Node::SharedPtr node_;
   rclcpp_action::Server<ActionTree>::SharedPtr action_server_;
   std::thread action_thread_;
@@ -81,7 +83,6 @@ private:
   action_server_bt::Params params_;
 
   BT::BehaviorTreeFactory factory_;
-  UserCallbacks user_cbs_;
   std::shared_ptr<BT::Groot2Publisher> groot_publisher_;
 
   /**
