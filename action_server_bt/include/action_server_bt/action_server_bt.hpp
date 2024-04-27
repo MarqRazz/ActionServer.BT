@@ -26,6 +26,21 @@
 namespace action_server_bt
 {
 
+typedef std::function<void(BT::Tree&)> OnTreeCreatedCallback;
+typedef std::function<void(BT::Blackboard&)> OnLoopCallback;
+typedef std::function<void(BT::NodeStatus&)> OnTreeExecutionCompletedCallback;
+
+/**
+ * @brief UserCallbacks is a collection of functions that get called
+ * after the tree is created, while its running and after it finishes.
+ */
+struct UserCallbacks
+{
+  OnTreeCreatedCallback on_create = [](BT::Tree&) {};
+  OnLoopCallback on_loop = [](BT::Blackboard&) {};
+  OnTreeExecutionCompletedCallback execution_complete = [](BT::NodeStatus&) {};
+};
+
 /**
  * @brief ActionServerBT class hosts a ROS Action Server that is able
  * to load Behavior plugins, BehaviorTree.xml files and execute them.
@@ -36,60 +51,16 @@ public:
   using ActionTree = action_server_bt_msgs::action::ActionTree;
   using GoalHandleActionTree = rclcpp_action::ServerGoalHandle<ActionTree>;
 
-  typedef std::function<void(BT::Tree&)> OnTreeCreatedCallback;
-  typedef std::function<void(BT::NodeStatus&)> OnTreeExecutionCompletedCallback;
-
   /**
    * @brief Constructor for ActionServerBT.
    * @details This initializes a ParameterListener to read configurable options from the user and
    * starts an Action Server that takes requests to execute BehaviorTrees.
    *
    * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
-   * @param tree_created user defined function that is called after the tree is created.
-   * @param execution_complete user defined function that is called after the tree has finished.
+   * @param user_callbacks optional struct of user defined function that are called
+   * after the tree is created, while its running and after it finishes.
    */
-  explicit ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created,
-                          OnTreeExecutionCompletedCallback execution_complete);
-
-  /**
-   * @brief Constructor for ActionServerBT.
-   * @details This initializes a ParameterListener to read configurable options from the user and
-   * starts an Action Server that takes requests to execute BehaviorTrees with no user defined callbacks.
-   *
-   * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
-   */
-  explicit ActionServerBT(const rclcpp::NodeOptions& options)
-    : ActionServerBT(
-          options, [](BT::Tree&) {}, [](BT::NodeStatus&) {})
-  {
-  }
-
-  /**
-   * @brief Constructor for ActionServerBT.
-   * @details This initializes a ParameterListener to read configurable options from the user and
-   * starts an Action Server that takes requests to execute BehaviorTrees.
-   *
-   * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
-   * @param tree_created user defined function that is called after the tree is created.
-   */
-  explicit ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created)
-    : ActionServerBT(options, tree_created, [](BT::NodeStatus&) {})
-  {
-  }
-
-  /**
-   * @brief Constructor for ActionServerBT.
-   * @details This initializes a ParameterListener to read configurable options from the user and
-   * starts an Action Server that takes requests to execute BehaviorTrees.
-   *
-   * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
-   * @param execution_complete user defined function that is called after the tree has finished.
-   */
-  explicit ActionServerBT(const rclcpp::NodeOptions& options, OnTreeExecutionCompletedCallback execution_complete)
-    : ActionServerBT(
-          options, [](BT::Tree&) {}, execution_complete)
-  {
-  }
+  explicit ActionServerBT(const rclcpp::NodeOptions& options, const UserCallbacks& user_callbacks = UserCallbacks());
 
   /**
    * @brief Gets the NodeBaseInterface of node_.
@@ -110,8 +81,7 @@ private:
   action_server_bt::Params params_;
 
   BT::BehaviorTreeFactory factory_;
-  OnTreeCreatedCallback on_tree_created_;
-  OnTreeExecutionCompletedCallback on_execution_complete_;
+  UserCallbacks user_cbs_;
   std::shared_ptr<BT::Groot2Publisher> groot_publisher_;
 
   /**

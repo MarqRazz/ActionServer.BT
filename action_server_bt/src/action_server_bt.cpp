@@ -21,13 +21,11 @@ static const auto kLogger = rclcpp::get_logger("action_server_bt");
 
 namespace action_server_bt
 {
-ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created,
-                               OnTreeExecutionCompletedCallback execution_complete)
+ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options, const UserCallbacks& user_callbacks)
   : node_{ std::make_shared<rclcpp::Node>("action_server_bt", options) }
 {
-  // initialize user callbacks for tree creation and execution complete
-  on_tree_created_ = tree_created;
-  on_execution_complete_ = execution_complete;
+  // initialize user callbacks
+  user_cbs_ = user_callbacks;
 
   // parameter setup
   param_listener_ = std::make_shared<action_server_bt::ParamListener>(node_);
@@ -100,10 +98,14 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   // Loop until something happens with ROS or the node completes
   try
   {
-    auto tree = factory_.createTree(goal->target_tree);
+    // No one "own" this blackboard
+    auto global_blackboard = BT::Blackboard::create();
+    // This blackboard will be owned by "MainTree". It parent is global_blackboard
+    auto root_blackboard = BT::Blackboard::create(global_blackboard);
+    auto tree = factory_.createTree(goal->target_tree, root_blackboard);
 
     // call user defined function after the tree has been created
-    on_tree_created_(tree);
+    user_cbs_.on_create(tree);
     groot_publisher_.reset();
     groot_publisher_ = std::make_shared<BT::Groot2Publisher>(tree, params_.groot2_port);
 
@@ -122,6 +124,7 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
         return;
       }
 
+      user_cbs_.on_loop(*global_blackboard);
       // tick the tree once and publish the action feedback
       status = tree.tickExactlyOnce();
       auto feedback = std::make_shared<ActionTree::Feedback>();
@@ -145,7 +148,7 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   }
 
   // call user defined execution complete function
-  on_execution_complete_(status);
+  user_cbs_.execution_complete(status);
 
   // set the node_status result to the action
   action_result->node_status = convert_node_status(status);
