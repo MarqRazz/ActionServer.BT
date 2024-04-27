@@ -45,9 +45,51 @@ public:
    * starts an Action Server that takes requests to execute BehaviorTrees.
    *
    * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
+   * @param tree_created user defined function that is called after the tree is created.
+   * @param execution_complete user defined function that is called after the tree has finished.
    */
   explicit ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created,
                           OnTreeExecutionCompletedCallback execution_complete);
+
+  /**
+   * @brief Constructor for ActionServerBT.
+   * @details This initializes a ParameterListener to read configurable options from the user and
+   * starts an Action Server that takes requests to execute BehaviorTrees with no user defined callbacks.
+   *
+   * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
+   */
+  explicit ActionServerBT(const rclcpp::NodeOptions& options)
+    : ActionServerBT(
+          options, [](BT::Tree&) {}, [](BT::NodeStatus&) {})
+  {
+  }
+
+  /**
+   * @brief Constructor for ActionServerBT.
+   * @details This initializes a ParameterListener to read configurable options from the user and
+   * starts an Action Server that takes requests to execute BehaviorTrees.
+   *
+   * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
+   * @param tree_created user defined function that is called after the tree is created.
+   */
+  explicit ActionServerBT(const rclcpp::NodeOptions& options, OnTreeCreatedCallback tree_created)
+    : ActionServerBT(options, tree_created, [](BT::NodeStatus&) {})
+  {
+  }
+
+  /**
+   * @brief Constructor for ActionServerBT.
+   * @details This initializes a ParameterListener to read configurable options from the user and
+   * starts an Action Server that takes requests to execute BehaviorTrees.
+   *
+   * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
+   * @param execution_complete user defined function that is called after the tree has finished.
+   */
+  explicit ActionServerBT(const rclcpp::NodeOptions& options, OnTreeExecutionCompletedCallback execution_complete)
+    : ActionServerBT(
+          options, [](BT::Tree&) {}, execution_complete)
+  {
+  }
 
   /**
    * @brief Gets the NodeBaseInterface of node_.
