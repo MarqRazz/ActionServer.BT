@@ -21,8 +21,8 @@ static const auto kLogger = rclcpp::get_logger("action_server_bt");
 
 namespace action_server_bt
 {
-ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options, const UserCallbacks& user_callbacks)
-  : node_{ std::make_shared<rclcpp::Node>("action_server_bt", options) }, user_cbs_{ user_callbacks }
+ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options)
+  : node_{ std::make_shared<rclcpp::Node>("action_server_bt", options) }
 {
   // parameter setup
   param_listener_ = std::make_shared<action_server_bt::ParamListener>(node_);
@@ -41,9 +41,13 @@ ActionServerBT::ActionServerBT(const rclcpp::NodeOptions& options, const UserCal
 
   // register the users Plugins and BehaviorTree.xml files into the factory
   register_behavior_trees(params_, factory_, node_);
+  registerNodesIntoFactory(factory_);
+
+  // No one "own" this blackboard
+  global_blackboard_ = BT::Blackboard::create();
 }
 
-rclcpp::node_interfaces::NodeBaseInterface::SharedPtr ActionServerBT::getNodeBaseInterface()
+rclcpp::node_interfaces::NodeBaseInterface::SharedPtr ActionServerBT::nodeBaseInterface()
 {
   return node_->get_node_base_interface();
 }
@@ -90,21 +94,23 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   {
     params_ = param_listener_->get_params();
     register_behavior_trees(params_, factory_, node_);
+    registerNodesIntoFactory(factory_);
   }
 
   // Loop until something happens with ROS or the node completes
   try
   {
-    // No one "own" this blackboard
-    auto global_blackboard = BT::Blackboard::create();
-    // This blackboard will be owned by "MainTree". It parent is global_blackboard
-    auto root_blackboard = BT::Blackboard::create(global_blackboard);
-    auto tree = factory_.createTree(goal->target_tree, root_blackboard);
+    // This blackboard will be owned by "MainTree". It parent is global_blackboard_
+    auto root_blackboard = BT::Blackboard::create(global_blackboard_);
+
+    tree_ = std::make_shared<BT::Tree>();
+    *tree_ = factory_.createTree(goal->target_tree, root_blackboard);
+    current_tree_name_ = goal->target_tree;
 
     // call user defined function after the tree has been created
-    user_cbs_.on_create(tree);
+    onTreeCreated(*tree_);
     groot_publisher_.reset();
-    groot_publisher_ = std::make_shared<BT::Groot2Publisher>(tree, params_.groot2_port);
+    groot_publisher_ = std::make_shared<BT::Groot2Publisher>(*tree_, params_.groot2_port);
 
     // Loop until the tree is done or a cancel is requested
     const auto period = std::chrono::milliseconds(static_cast<int>(1000.0 / params_.behavior_tick_frequency));
@@ -116,14 +122,19 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
       {
         action_result->error_message = "Action Server canceling and halting Behavior Tree";
         RCLCPP_ERROR(kLogger, action_result->error_message.c_str());
-        tree.haltTree();
+        tree_->haltTree();
         goal_handle->canceled(action_result);
         return;
       }
 
-      user_cbs_.on_loop(*global_blackboard);
       // tick the tree once and publish the action feedback
-      status = tree.tickExactlyOnce();
+      status = tree_->tickExactlyOnce();
+
+      if (!onLoopAfterTick(status))
+      {
+        break;
+      }
+
       auto feedback = std::make_shared<ActionTree::Feedback>();
       feedback->node_status = convert_node_status(status);
       goal_handle->publish_feedback(feedback);
@@ -131,7 +142,7 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
       const auto now = std::chrono::steady_clock::now();
       if (now < loop_deadline)
       {
-        tree.sleep(loop_deadline - now);
+        tree_->sleep(loop_deadline - now);
       }
       loop_deadline += period;
     }
@@ -145,7 +156,7 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   }
 
   // call user defined execution complete function
-  user_cbs_.execution_complete(status);
+  onTreeExecutionCompleted(status, cancel_requested_);
 
   // set the node_status result to the action
   action_result->node_status = convert_node_status(status);
@@ -163,4 +174,20 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
     goal_handle->abort(action_result);
   }
 }
+
+const std::string& ActionServerBT::currentTreeName() const
+{
+  return current_tree_name_;
+}
+
+BT::Tree* ActionServerBT::currentTree()
+{
+  return tree_ ? tree_.get() : nullptr;
+}
+
+BT::Blackboard::Ptr ActionServerBT::globalBlackboard()
+{
+  return global_blackboard_;
+}
+
 }  // namespace action_server_bt
