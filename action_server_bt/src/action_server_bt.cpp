@@ -124,6 +124,7 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
         RCLCPP_ERROR(kLogger, action_result->error_message.c_str());
         tree_->haltTree();
         goal_handle->canceled(action_result);
+        onTreeExecutionCompleted(status, true);
         return;
       }
 
@@ -156,7 +157,7 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
   }
 
   // call user defined execution complete function
-  onTreeExecutionCompleted(status, cancel_requested_);
+  onTreeExecutionCompleted(status, false);
 
   // set the node_status result to the action
   action_result->node_status = convert_node_status(status);
