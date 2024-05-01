@@ -34,6 +34,8 @@ action_server_bt_msgs::msg::NodeStatus convert_node_status(BT::NodeStatus& statu
       action_status.status = action_server_bt_msgs::msg::NodeStatus::FAILURE;
     case BT::NodeStatus::IDLE:
       action_status.status = action_server_bt_msgs::msg::NodeStatus::IDLE;
+    case BT::NodeStatus::SKIPPED:
+      action_status.status = action_server_bt_msgs::msg::NodeStatus::SKIPPED;
   }
 
   return action_status;

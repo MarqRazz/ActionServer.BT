@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <thread>
+#include <optional>
 
 #include "action_server_bt_msgs/action/action_tree.hpp"
 #include "action_server_bt_parameters.hpp"
@@ -42,6 +43,7 @@ public:
    * starts an Action Server that takes requests to execute BehaviorTrees.
    *
    * @param options rclcpp::NodeOptions to pass to node_ when initializing it.
+   * after the tree is created, while its running and after it finishes.
    */
   explicit ActionServerBT(const rclcpp::NodeOptions& options);
 
@@ -51,7 +53,46 @@ public:
    *
    * @return A shared_ptr to the NodeBaseInterface of node_.
    */
-  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr getNodeBaseInterface();
+  rclcpp::node_interfaces::NodeBaseInterface::SharedPtr nodeBaseInterface();
+
+  // name of the tree being executed
+  const std::string& currentTreeName() const;
+
+  // tree being executed, nullptr if it doesn't exist yet.
+  BT::Tree* currentTree();
+
+  // pointer to the global blackboard
+  BT::Blackboard::Ptr globalBlackboard();
+
+protected:
+  // To be overridden by the user.
+  // Callback invoked when the tree is created and before it is executed,
+  // Can be used to update the blackboard or to attach loggers.
+  virtual void onTreeCreated(BT::Tree& tree)
+  {
+  }
+
+  // To be overridden by the user.
+  // In addition to the built in mechanism to register nodes from plugins,
+  // you can use this method to register custom nodes into the factory.
+  virtual void registerNodesIntoFactory(BT::BehaviorTreeFactory& factory)
+  {
+  }
+
+  // To be overridden by the user.
+  // Callback invoked after the tickOnce.
+  // If it returns something different than std::nullopt, the tree execution will
+  // be halted and the returned value will be the optional NodeStatus.
+  virtual std::optional<BT::NodeStatus> onLoopAfterTick(BT::NodeStatus status)
+  {
+    return std::nullopt;
+  }
+
+  // To be overridden by the user.
+  // Callback invoked when the tree execution is completed
+  virtual void onTreeExecutionCompleted(BT::NodeStatus status, bool was_cancelled)
+  {
+  }
 
 private:
   rclcpp::Node::SharedPtr node_;
@@ -65,6 +106,10 @@ private:
 
   BT::BehaviorTreeFactory factory_;
   std::shared_ptr<BT::Groot2Publisher> groot_publisher_;
+
+  std::string current_tree_name_;
+  std::shared_ptr<BT::Tree> tree_;
+  BT::Blackboard::Ptr global_blackboard_;
 
   /**
    * @brief handle the goal requested: accept or reject. This implementation always accepts.

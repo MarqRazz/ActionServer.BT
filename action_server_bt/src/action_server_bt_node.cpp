@@ -13,19 +13,44 @@
 
 #include <action_server_bt/action_server_bt.hpp>
 
+// Example that shows how to customize ActionServerBT.
+// Here, we simply add an extra logger
+class MyActionServer : public action_server_bt::ActionServerBT
+{
+public:
+  MyActionServer(const rclcpp::NodeOptions& options) : ActionServerBT(options)
+  {
+  }
+
+  void onTreeCreated(BT::Tree& tree) override
+  {
+    logger_cout_ = std::make_shared<BT::StdCoutLogger>(tree);
+  }
+
+  void onTreeExecutionCompleted(BT::NodeStatus status, bool was_cancelled) override
+  {
+    // NOT really needed, even if logger_cout_ may contain a dangling pointer of the tree
+    // at this point
+    logger_cout_.reset();
+  }
+
+private:
+  std::shared_ptr<BT::StdCoutLogger> logger_cout_;
+};
+
 int main(int argc, char* argv[])
 {
   rclcpp::init(argc, argv);
 
   rclcpp::NodeOptions options;
-  auto node = std::make_shared<action_server_bt::ActionServerBT>(options);
+  auto action_server = std::make_shared<MyActionServer>(options);
 
   // TODO: This workaround is for a bug in MultiThreadedExecutor where it can deadlock when spinning without a timeout.
   // Deadlock is caused when Publishers or Subscribers are dynamically removed as the node is spinning.
   rclcpp::executors::MultiThreadedExecutor exec(rclcpp::ExecutorOptions(), 0, false, std::chrono::milliseconds(250));
-  exec.add_node(node->getNodeBaseInterface());
+  exec.add_node(action_server->nodeBaseInterface());
   exec.spin();
-  exec.remove_node(node->getNodeBaseInterface());
+  exec.remove_node(action_server->nodeBaseInterface());
 
   rclcpp::shutdown();
 }
