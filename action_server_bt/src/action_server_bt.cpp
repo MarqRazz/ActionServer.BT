@@ -116,24 +116,32 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
     const auto period = std::chrono::milliseconds(static_cast<int>(1000.0 / params_.behavior_tick_frequency));
     auto loop_deadline = std::chrono::steady_clock::now() + period;
 
+    // operations to be done if the tree execution is aborted, either by
+    // cancel_requested_ or by onLoopAfterTick()
+    auto abort_action = [this, &action_result, &goal_handle](BT::NodeStatus status, const std::string& message) {
+      action_result->node_status = convert_node_status(status);
+      action_result->error_message = message;
+      RCLCPP_WARN(kLogger, action_result->error_message.c_str());
+      tree_->haltTree();
+      goal_handle->abort(action_result);
+      onTreeExecutionCompleted(status, true);
+    };
+
     while (rclcpp::ok() && status == BT::NodeStatus::RUNNING)
     {
       if (cancel_requested_)
       {
-        action_result->error_message = "Action Server canceling and halting Behavior Tree";
-        RCLCPP_ERROR(kLogger, action_result->error_message.c_str());
-        tree_->haltTree();
-        goal_handle->canceled(action_result);
-        onTreeExecutionCompleted(status, true);
+        abort_action(status, "Action Server canceling and halting Behavior Tree");
         return;
       }
 
       // tick the tree once and publish the action feedback
       status = tree_->tickExactlyOnce();
 
-      if (!onLoopAfterTick(status))
+      if (const auto res = onLoopAfterTick(status); res.has_value())
       {
-        break;
+        abort_action(res.value(), "Action Server aborted by onLoopAfterTick()");
+        return;
       }
 
       auto feedback = std::make_shared<ActionTree::Feedback>();

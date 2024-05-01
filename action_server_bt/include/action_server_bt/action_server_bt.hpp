@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <thread>
+#include <optional>
 
 #include "action_server_bt_msgs/action/action_tree.hpp"
 #include "action_server_bt_parameters.hpp"
@@ -79,10 +80,12 @@ protected:
   }
 
   // To be overridden by the user.
-  // Callback invoked after the tickOnce. Return false to stop the execution
-  virtual bool onLoopAfterTick(BT::NodeStatus status)
+  // Callback invoked after the tickOnce.
+  // If it returns something different than std::nullopt, the tree execution will
+  // be halted and the returned value will be the optional NodeStatus.
+  virtual std::optional<BT::NodeStatus> onLoopAfterTick(BT::NodeStatus status)
   {
-    return true;
+    return std::nullopt;
   }
 
   // To be overridden by the user.
