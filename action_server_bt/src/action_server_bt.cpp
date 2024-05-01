@@ -118,12 +118,11 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
 
     // operations to be done if the tree execution is aborted, either by
     // cancel_requested_ or by onLoopAfterTick()
-    auto abort_action = [this, &action_result, &goal_handle](BT::NodeStatus status, const std::string& message) {
+    auto stop_action = [this, &action_result](BT::NodeStatus status, const std::string& message) {
       action_result->node_status = convert_node_status(status);
       action_result->error_message = message;
       RCLCPP_WARN(kLogger, action_result->error_message.c_str());
       tree_->haltTree();
-      goal_handle->abort(action_result);
       onTreeExecutionCompleted(status, true);
     };
 
@@ -131,7 +130,8 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
     {
       if (cancel_requested_)
       {
-        abort_action(status, "Action Server canceling and halting Behavior Tree");
+        stop_action(status, "Action Server canceling and halting Behavior Tree");
+        goal_handle->canceled(action_result);
         return;
       }
 
@@ -140,7 +140,8 @@ void ActionServerBT::execute(const std::shared_ptr<GoalHandleActionTree> goal_ha
 
       if (const auto res = onLoopAfterTick(status); res.has_value())
       {
-        abort_action(res.value(), "Action Server aborted by onLoopAfterTick()");
+        stop_action(res.value(), "Action Server aborted by onLoopAfterTick()");
+        goal_handle->abort(action_result);
         return;
       }
 
